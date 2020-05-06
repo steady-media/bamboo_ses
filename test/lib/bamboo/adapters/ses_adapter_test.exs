@@ -168,4 +168,38 @@ defmodule Bamboo.SesAdapterTest do
       SesAdapter.deliver(new_email(), %{})
     end)
   end
+
+  test "rfc1342" do
+    Application.put_env(:bamboo_ses, :rfc1342, true)
+
+    email =
+      Email.new_email(
+        to: {"Alice Johnson", "alice@example.com"},
+        from: {"Bob McBob", "bob@example.com"},
+        headers: %{"Reply-To" => {"Chuck Eager", "chuck@example.com"}},
+        cc: {"John Müller", "john@example.com"},
+        bcc: {"Jane Doe", "jane@example.com"},
+        subject: "Welcome to the app."
+      )
+      |> Mailer.normalize_addresses()
+
+    expected_request_fn = fn _, _, body, _, _ ->
+      message = parse_body(body)
+      assert Mail.get_to(message) == [{"=?utf-8?B?QWxpY2U=?= =?utf-8?B?Sm9obnNvbg==?=", "alice@example.com"}]
+      assert Mail.get_from(message) == {"=?utf-8?B?Qm9i?= =?utf-8?B?TWNCb2I=?=", "bob@example.com"}
+      assert Mail.get_cc(message) == "=?utf-8?B?Sm9obg==?= =?utf-8?B?TcO8bGxlcg==?= <john@example.com>"
+      assert Mail.get_bcc(message) == "=?utf-8?B?SmFuZQ==?= =?utf-8?B?RG9l?= <jane@example.com>"
+      assert Mail.get_reply_to(message) == {"=?utf-8?B?Q2h1Y2s=?= =?utf-8?B?RWFnZXI=?=", "chuck@example.com"}
+
+      assert Mail.get_subject(message) ==
+               "=?utf-8?B?V2VsY29tZQ==?= =?utf-8?B?dG8=?= =?utf-8?B?dGhl?= =?utf-8?B?YXBwLg==?="
+
+      {:ok, %{status_code: 200}}
+    end
+
+    expect(HttpMock, :request, expected_request_fn)
+
+    SesAdapter.deliver(email, %{})
+    Application.put_env(:bamboo_ses, :rfc1342, false)
+  end
 end

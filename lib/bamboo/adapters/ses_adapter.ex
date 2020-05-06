@@ -95,7 +95,8 @@ defmodule Bamboo.SesAdapter do
 
   defp rfc1342_encode(string, {:utf8, :base64}) do
     string
-    |> String.split()
+    |> Stream.unfold(&String.split_at(&1, 37))
+    |> Enum.take_while(&(&1 != ""))
     |> Enum.map(fn word ->
       "=?utf-8?B?#{Base.encode64(word)}?="
     end)

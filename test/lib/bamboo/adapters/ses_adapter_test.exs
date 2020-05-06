@@ -32,6 +32,7 @@ defmodule Bamboo.SesAdapterTest do
     System.put_env("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
     System.put_env("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
     Application.put_env(:ex_aws, :http_client, ExAws.Request.HttpMock)
+    Application.put_env(:bamboo_ses, :rfc1342, false)
     :ok
   end
 
@@ -179,20 +180,19 @@ defmodule Bamboo.SesAdapterTest do
         headers: %{"Reply-To" => {"Chuck Eager", "chuck@example.com"}},
         cc: {"John Müller", "john@example.com"},
         bcc: {"Jane Doe", "jane@example.com"},
-        subject: "Welcome to the app."
+        subject: "Welcome to the app this is a longer subject"
       )
       |> Mailer.normalize_addresses()
 
     expected_request_fn = fn _, _, body, _, _ ->
       message = parse_body(body)
-      assert Mail.get_to(message) == [{"=?utf-8?B?QWxpY2U=?= =?utf-8?B?Sm9obnNvbg==?=", "alice@example.com"}]
-      assert Mail.get_from(message) == {"=?utf-8?B?Qm9i?= =?utf-8?B?TWNCb2I=?=", "bob@example.com"}
-      assert Mail.get_cc(message) == "=?utf-8?B?Sm9obg==?= =?utf-8?B?TcO8bGxlcg==?= <john@example.com>"
-      assert Mail.get_bcc(message) == "=?utf-8?B?SmFuZQ==?= =?utf-8?B?RG9l?= <jane@example.com>"
-      assert Mail.get_reply_to(message) == {"=?utf-8?B?Q2h1Y2s=?= =?utf-8?B?RWFnZXI=?=", "chuck@example.com"}
+      assert Mail.get_to(message) == [{"=?utf-8?B?QWxpY2UgSm9obnNvbg==?=", "alice@example.com"}]
+      assert Mail.get_from(message) == {"=?utf-8?B?Qm9iIE1jQm9i?=", "bob@example.com"}
+      assert Mail.get_cc(message) == "=?utf-8?B?Sm9obiBNw7xsbGVy?= <john@example.com>"
+      assert Mail.get_bcc(message) == "=?utf-8?B?SmFuZSBEb2U=?= <jane@example.com>"
+      assert Mail.get_reply_to(message) == {"=?utf-8?B?Q2h1Y2sgRWFnZXI=?=", "chuck@example.com"}
 
-      assert Mail.get_subject(message) ==
-               "=?utf-8?B?V2VsY29tZQ==?= =?utf-8?B?dG8=?= =?utf-8?B?dGhl?= =?utf-8?B?YXBwLg==?="
+      assert Mail.get_subject(message) == "=?utf-8?B?V2VsY29tZSB0byB0aGUgYXBwIHRoaXMgaXMgYSBsb25nZXIgcw==?= =?utf-8?B?dWJqZWN0?="
 
       {:ok, %{status_code: 200}}
     end

@@ -6,13 +6,13 @@ defmodule Bamboo.SesAdapterTest do
   alias Mail.Parsers.RFC2822
   require IEx
 
-  defp new_email(to \\ "alice@example.com") do
+  defp new_email(to \\ "alice@example.com", subject \\ "Welcome to the app.") do
     Email.new_email(
       to: to,
       from: "bob@example.com",
       cc: "john@example.com",
       bcc: "jane@example.com",
-      subject: "Welcome to the app.",
+      subject: subject,
       headers: %{"Reply-To" => "chuck@example.com"},
       html_body: "<strong>Thanks for joining!</strong>",
       text_body: "Thanks for joining!"
@@ -25,6 +25,7 @@ defmodule Bamboo.SesAdapterTest do
     |> URI.decode_query()
     |> Map.get("RawMessage.Data")
     |> Base.decode64!()
+    |> IO.inspect()
     |> RFC2822.parse()
   end
 
@@ -52,6 +53,27 @@ defmodule Bamboo.SesAdapterTest do
     expect(HttpMock, :request, expected_request_fn)
 
     SesAdapter.deliver(new_email(), %{})
+  end
+
+  test "delivers successfully with long subject" do
+    expected_request_fn = fn _, _, body, _, _ ->
+      message = parse_body(body)
+
+      assert Mail.get_subject(message) ==
+               "=?utf-8?Q?This_is_a_long_subject_with_an_emoji_=f0=9f=99=82_bla_bla?=\n=?utf-8?Q?_bla_bla_bla_bla_bla_bla_bla_bla_bla_bla_bla_bla_bla_bla?="
+
+      {:ok, %{status_code: 200}}
+    end
+
+    expect(HttpMock, :request, expected_request_fn)
+
+    SesAdapter.deliver(
+      new_email(
+        "alice@example.com",
+        "This is a long subject with an emoji 🙂 bla bla bla bla bla bla bla bla bla bla bla bla bla bla bla bla"
+      ),
+      %{}
+    )
   end
 
   test "delivers successfully email without body" do
